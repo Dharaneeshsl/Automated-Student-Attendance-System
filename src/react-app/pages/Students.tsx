@@ -1,22 +1,27 @@
 import { useState, useEffect } from "react";
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
   User,
   Camera,
   Save,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import { Student, CreateStudent } from "@/shared/types";
 
 export default function Students() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [formData, setFormData] = useState<CreateStudent>({
     student_id: "",
     name: "",
@@ -33,13 +38,18 @@ export default function Students() {
 
   const fetchStudents = async () => {
     try {
+      setError(null);
+      setLoading(true);
       const response = await fetch("/api/students");
       const result = await response.json();
       if (result.success) {
         setStudents(result.data);
+      } else {
+        setError(result.message || "Unable to load students.");
       }
     } catch (error) {
       console.error("Failed to fetch students:", error);
+      setError("Unable to load students.");
     } finally {
       setLoading(false);
     }
@@ -47,7 +57,15 @@ export default function Students() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    const trimmedId = formData.student_id.trim();
+    const trimmedName = formData.name.trim();
+    if (!trimmedId || !trimmedName) {
+      setFormError("Student ID and full name are required.");
+      return;
+    }
+    setFormError(null);
+    setIsSubmitting(true);
+
     try {
       const url = editingStudent ? `/api/students/${editingStudent.id}` : "/api/students";
       const method = editingStudent ? "PUT" : "POST";
@@ -55,7 +73,11 @@ export default function Students() {
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          student_id: trimmedId,
+          name: trimmedName
+        })
       });
       
       const result = await response.json();
@@ -64,11 +86,13 @@ export default function Students() {
         fetchStudents();
         resetForm();
       } else {
-        alert(result.message || "Failed to save student");
+        setFormError(result.message || "Failed to save student");
       }
     } catch (error) {
       console.error("Failed to save student:", error);
-      alert("Failed to save student");
+      setFormError("Failed to save student");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -76,6 +100,7 @@ export default function Students() {
     if (!confirm("Are you sure you want to delete this student?")) return;
     
     try {
+      setDeleteId(id);
       const response = await fetch(`/api/students/${id}`, {
         method: "DELETE"
       });
@@ -85,11 +110,13 @@ export default function Students() {
       if (result.success) {
         fetchStudents();
       } else {
-        alert(result.message || "Failed to delete student");
+        setError(result.message || "Failed to delete student");
       }
     } catch (error) {
       console.error("Failed to delete student:", error);
-      alert("Failed to delete student");
+      setError("Failed to delete student");
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -103,6 +130,7 @@ export default function Students() {
       year: "",
       is_active: true
     });
+    setFormError(null);
     setShowAddModal(false);
     setEditingStudent(null);
   };
@@ -145,6 +173,18 @@ export default function Students() {
       </div>
 
       {/* Search */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={fetchStudents}
+            className="text-sm font-medium text-red-700 hover:text-red-900"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
@@ -224,9 +264,14 @@ export default function Students() {
                         </button>
                         <button
                           onClick={() => handleDelete(student.id!)}
+                          disabled={deleteId === student.id}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {deleteId === student.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -252,6 +297,11 @@ export default function Students() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+                  {formError}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -351,10 +401,20 @@ export default function Students() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
+                  disabled={isSubmitting}
+                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{editingStudent ? "Update" : "Save"}</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>{editingStudent ? "Update" : "Save"}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

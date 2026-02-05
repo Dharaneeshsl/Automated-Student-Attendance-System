@@ -12,6 +12,26 @@ const app = new Hono<{ Bindings: Env }>();
 // Enable CORS for all routes
 app.use("*", cors());
 
+// Health check
+app.get("/api/health", async (c) => {
+  try {
+    const db = c.env.DB;
+    await db.prepare("SELECT 1").first();
+    return c.json({
+      success: true,
+      data: {
+        status: "ok",
+        timestamp: new Date().toISOString()
+      }
+    } as ApiResponse);
+  } catch (error) {
+    return c.json({
+      success: false,
+      message: "Health check failed"
+    } as ApiResponse, 500);
+  }
+});
+
 // Students API
 app.get("/api/students", async (c) => {
   try {

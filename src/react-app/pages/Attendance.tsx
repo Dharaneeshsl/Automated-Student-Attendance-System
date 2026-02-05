@@ -14,6 +14,8 @@ export default function Attendance() {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<AttendanceType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedStudent, setSelectedStudent] = useState("");
@@ -25,25 +27,35 @@ export default function Attendance() {
 
   const fetchStudents = async () => {
     try {
+      setError(null);
       const response = await fetch("/api/students");
       const result = await response.json();
       if (result.success) {
         setStudents(result.data);
+      } else {
+        setError(result.message || "Unable to load students.");
       }
     } catch (error) {
       console.error("Failed to fetch students:", error);
+      setError("Unable to load students.");
     }
   };
 
   const fetchAttendance = async () => {
     try {
+      setError(null);
+      setActionError(null);
+      setLoading(true);
       const response = await fetch(`/api/attendance?date=${selectedDate}`);
       const result = await response.json();
       if (result.success) {
         setAttendance(result.data);
+      } else {
+        setError(result.message || "Unable to load attendance.");
       }
     } catch (error) {
       console.error("Failed to fetch attendance:", error);
+      setError("Unable to load attendance.");
     } finally {
       setLoading(false);
     }
@@ -51,6 +63,7 @@ export default function Attendance() {
 
   const markAttendance = async (studentId: string, studentName: string) => {
     try {
+      setActionError(null);
       const now = new Date();
       const attendanceData = {
         student_id: studentId,
@@ -71,17 +84,17 @@ export default function Attendance() {
       if (result.success) {
         fetchAttendance();
       } else {
-        alert(result.message || "Failed to mark attendance");
+        setActionError(result.message || "Failed to mark attendance");
       }
     } catch (error) {
       console.error("Failed to mark attendance:", error);
-      alert("Failed to mark attendance");
+      setActionError("Failed to mark attendance");
     }
   };
 
   const simulateRecognition = () => {
     if (students.length === 0) {
-      alert("No students registered. Please add students first.");
+      setActionError("No students registered. Please add students first.");
       return;
     }
 
@@ -97,7 +110,7 @@ export default function Attendance() {
         const randomStudent = unmarkedStudents[Math.floor(Math.random() * unmarkedStudents.length)];
         markAttendance(randomStudent.student_id, randomStudent.name);
       } else {
-        alert("All students have already been marked present today!");
+        setActionError("All students have already been marked present today!");
       }
       
       setIsCapturing(false);
@@ -122,6 +135,26 @@ export default function Attendance() {
       </div>
 
       {/* Date Selection and Stats */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => {
+              fetchStudents();
+              fetchAttendance();
+            }}
+            className="text-sm font-medium text-red-700 hover:text-red-900"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {actionError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-lg">
+          {actionError}
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 shadow-lg">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -182,9 +215,9 @@ export default function Attendance() {
 
           <button
             onClick={simulateRecognition}
-            disabled={isCapturing}
+            disabled={isCapturing || students.length === 0}
             className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 mx-auto ${
-              isCapturing
+              isCapturing || students.length === 0
                 ? "bg-gray-400 text-white cursor-not-allowed"
                 : "bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg"
             }`}
@@ -211,9 +244,15 @@ export default function Attendance() {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Manual Attendance</h3>
           
           <div className="space-y-4">
+            {students.length === 0 && !loading && (
+              <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                Add students first to enable manual attendance.
+              </div>
+            )}
             <select
               value={selectedStudent}
               onChange={(e) => setSelectedStudent(e.target.value)}
+              disabled={students.length === 0}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Select a student</option>
