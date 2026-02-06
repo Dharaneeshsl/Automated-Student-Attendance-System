@@ -14,6 +14,7 @@ export default function Reports() {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedStudent, setSelectedStudent] = useState("");
@@ -38,18 +39,28 @@ export default function Reports() {
 
   const fetchStudents = async () => {
     try {
+      setError(null);
       const response = await fetch("/api/students");
       const result = await response.json();
       if (result.success) {
         setStudents(result.data);
+      } else {
+        setError(result.message || "Unable to load students.");
       }
     } catch (error) {
       console.error("Failed to fetch students:", error);
+      setError("Unable to load students.");
     }
   };
 
   const fetchAttendance = async () => {
     try {
+      setError(null);
+      setLoading(true);
+      if (dateFrom && dateTo && new Date(dateFrom) > new Date(dateTo)) {
+        setAttendance([]);
+        return;
+      }
       let url = "/api/attendance";
       const params = new URLSearchParams();
       
@@ -72,9 +83,12 @@ export default function Reports() {
           return recordDate >= fromDate && recordDate <= toDate;
         });
         setAttendance(filtered);
+      } else {
+        setError(result.message || "Unable to load attendance.");
       }
     } catch (error) {
       console.error("Failed to fetch attendance:", error);
+      setError("Unable to load attendance.");
     } finally {
       setLoading(false);
     }
@@ -142,6 +156,7 @@ export default function Reports() {
 
   const stats = getAttendanceStats();
   const studentSummary = getStudentAttendanceSummary();
+  const hasDateError = Boolean(dateFrom && dateTo && new Date(dateFrom) > new Date(dateTo));
 
   return (
     <div className="space-y-6">
@@ -153,6 +168,26 @@ export default function Reports() {
 
       {/* Filters */}
       <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 shadow-lg">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between mb-4">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => {
+                fetchStudents();
+                fetchAttendance();
+              }}
+              className="text-sm font-medium text-red-700 hover:text-red-900"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {hasDateError && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-lg mb-4">
+            The start date must be before the end date.
+          </div>
+        )}
         <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
           <Filter className="w-5 h-5 mr-2 text-blue-600" />
           Report Filters
@@ -198,7 +233,7 @@ export default function Reports() {
           <div className="flex items-end">
             <button
               onClick={generateCSV}
-              disabled={attendance.length === 0}
+              disabled={attendance.length === 0 || hasDateError}
               className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />

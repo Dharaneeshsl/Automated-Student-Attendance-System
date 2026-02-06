@@ -5,6 +5,7 @@ import Dashboard from "@/react-app/pages/Dashboard";
 import Students from "@/react-app/pages/Students";
 import Attendance from "@/react-app/pages/Attendance";
 import Reports from "@/react-app/pages/Reports";
+import NotFound from "@/react-app/pages/NotFound";
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/students" element={<Students />} />
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>
