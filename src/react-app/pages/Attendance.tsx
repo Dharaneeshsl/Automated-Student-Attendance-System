@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Camera, 
   Play, 
@@ -20,12 +20,7 @@ export default function Attendance() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedStudent, setSelectedStudent] = useState("");
 
-  useEffect(() => {
-    fetchStudents();
-    fetchAttendance();
-  }, [selectedDate]);
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     try {
       setError(null);
       const response = await fetch("/api/students");
@@ -39,9 +34,9 @@ export default function Attendance() {
       console.error("Failed to fetch students:", error);
       setError("Unable to load students.");
     }
-  };
+  }, []);
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = useCallback(async () => {
     try {
       setError(null);
       setActionError(null);
@@ -59,7 +54,12 @@ export default function Attendance() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate]);
+
+  useEffect(() => {
+    fetchStudents();
+    fetchAttendance();
+  }, [fetchStudents, fetchAttendance]);
 
   const markAttendance = async (studentId: string, studentName: string) => {
     try {

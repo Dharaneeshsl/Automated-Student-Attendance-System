@@ -24,7 +24,7 @@ app.get("/api/health", async (c) => {
         timestamp: new Date().toISOString()
       }
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Health check failed"
@@ -42,7 +42,7 @@ app.get("/api/students", async (c) => {
       success: true,
       data: students.results
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Failed to fetch students"
@@ -84,7 +84,7 @@ app.post("/api/students", zValidator("json", CreateStudentSchema), async (c) => 
       message: "Student created successfully",
       data: { id: result.meta.last_row_id }
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Failed to create student"
@@ -127,7 +127,7 @@ app.put("/api/students/:id", zValidator("json", CreateStudentSchema), async (c) 
       success: true,
       message: "Student updated successfully"
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Failed to update student"
@@ -153,7 +153,7 @@ app.delete("/api/students/:id", async (c) => {
       success: true,
       message: "Student deleted successfully"
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Failed to delete student"
@@ -169,7 +169,7 @@ app.get("/api/attendance", async (c) => {
     const studentId = c.req.query("student_id");
     
     let query = "SELECT * FROM attendance WHERE 1=1";
-    const params: any[] = [];
+    const params: (string | number)[] = [];
     
     if (date) {
       query += " AND attendance_date = ?";
@@ -189,7 +189,7 @@ app.get("/api/attendance", async (c) => {
       success: true,
       data: attendance.results
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Failed to fetch attendance"
@@ -230,7 +230,7 @@ app.post("/api/attendance", zValidator("json", CreateAttendanceSchema), async (c
       message: "Attendance marked successfully",
       data: { id: result.meta.last_row_id }
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Failed to mark attendance"
@@ -255,7 +255,7 @@ app.get("/api/stats", async (c) => {
         thisWeekAttendance: thisWeekAttendance?.count || 0
       }
     } as ApiResponse);
-  } catch (error) {
+  } catch {
     return c.json({
       success: false,
       message: "Failed to fetch statistics"
