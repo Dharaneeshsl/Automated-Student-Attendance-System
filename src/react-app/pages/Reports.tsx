@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Download, 
   Calendar, 
@@ -19,25 +19,7 @@ export default function Reports() {
   const [dateTo, setDateTo] = useState("");
   const [selectedStudent, setSelectedStudent] = useState("");
 
-  useEffect(() => {
-    // Set default dates (last 30 days)
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-    
-    setDateTo(today.toISOString().split('T')[0]);
-    setDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
-
-    fetchStudents();
-    fetchAttendance();
-  }, []);
-
-  useEffect(() => {
-    if (dateFrom && dateTo) {
-      fetchAttendance();
-    }
-  }, [dateFrom, dateTo, selectedStudent]);
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     try {
       setError(null);
       const response = await fetch("/api/students");
@@ -51,9 +33,9 @@ export default function Reports() {
       console.error("Failed to fetch students:", error);
       setError("Unable to load students.");
     }
-  };
+  }, []);
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = useCallback(async () => {
     try {
       setError(null);
       setLoading(true);
@@ -92,7 +74,25 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateFrom, dateTo, selectedStudent]);
+
+  // Initial load
+  useEffect(() => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    setDateTo(today.toISOString().split('T')[0]);
+    setDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+
+    fetchStudents();
+  }, [fetchStudents]);
+
+  // Fetch attendance when filters change
+  useEffect(() => {
+    if (dateFrom && dateTo) {
+      fetchAttendance();
+    }
+  }, [fetchAttendance, dateFrom, dateTo]);
 
   const generateCSV = () => {
     const headers = ["Student ID", "Student Name", "Date", "Time", "Status"];
