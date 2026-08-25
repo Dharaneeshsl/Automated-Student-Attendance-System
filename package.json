@@ -38,6 +38,11 @@
     "cf-typegen": "wrangler types",
     "check": "tsc && vite build && wrangler deploy --dry-run",
     "dev": "vite",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 migrations apply 01985c5e-bd1d-71b6-8fb3-00492bfae37b --local",
+    "db:remote": "wrangler d1 migrations apply 01985c5e-bd1d-71b6-8fb3-00492bfae37b --remote",
+    "seed:local": "wrangler d1 execute 01985c5e-bd1d-71b6-8fb3-00492bfae37b --local --file=scripts/seed.sql",
+    "seed:remote": "wrangler d1 execute 01985c5e-bd1d-71b6-8fb3-00492bfae37b --remote --file=scripts/seed.sql"
   }
 }

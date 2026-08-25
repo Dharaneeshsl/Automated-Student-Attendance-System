@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Search,
@@ -8,7 +8,8 @@ import {
   Camera,
   Save,
   X,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { Student, CreateStudent } from "@/shared/types";
 
@@ -32,8 +33,22 @@ export default function Students() {
     is_active: true
   });
 
+  // Camera capture state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchStudents();
+  }, []);
+
+  // Clean up the camera stream when the component unmounts
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
   }, []);
 
   const fetchStudents = async () => {
@@ -120,7 +135,66 @@ export default function Students() {
     }
   };
 
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setIsCameraActive(false);
+  };
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false
+      });
+      streamRef.current = mediaStream;
+      setIsCameraActive(true);
+
+      // Attach the stream to the video element once it is rendered
+      requestAnimationFrame(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(() => undefined);
+        }
+      });
+    } catch {
+      stopCamera();
+      setCameraError(
+        "Camera access was denied or is unavailable. Please allow camera permissions and try again."
+      );
+    }
+  };
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) {
+      setCameraError("Could not capture a photo. Please start the camera again.");
+      return;
+    }
+
+    // Downscale to keep the stored image small (suits D1 TEXT storage)
+    const maxSize = 360;
+    const scale = Math.min(1, maxSize / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+
+    setFormData((prev) => ({ ...prev, photo_url: dataUrl }));
+    stopCamera();
+  };
+
+  const removePhoto = () => {
+    setFormData((prev) => ({ ...prev, photo_url: undefined }));
+  };
+
   const resetForm = () => {
+    stopCamera();
     setFormData({
       student_id: "",
       name: "",
@@ -131,11 +205,13 @@ export default function Students() {
       is_active: true
     });
     setFormError(null);
+    setCameraError(null);
     setShowAddModal(false);
     setEditingStudent(null);
   };
 
   const openEditModal = (student: Student) => {
+    stopCamera();
     setEditingStudent(student);
     setFormData({
       student_id: student.student_id,
@@ -144,8 +220,10 @@ export default function Students() {
       phone: student.phone || "",
       department: student.department || "",
       year: student.year || "",
+      photo_url: student.photo_url || undefined,
       is_active: student.is_active
     });
+    setCameraError(null);
     setShowAddModal(true);
   };
 
@@ -237,11 +315,19 @@ export default function Students() {
                   <tr key={student.id} className="hover:bg-gray-50 transition-colors">
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
-                          <span className="text-white font-medium text-sm">
-                            {student.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        {student.photo_url ? (
+                          <img
+                            src={student.photo_url}
+                            alt={student.name}
+                            className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                            <span className="text-white font-medium text-sm">
+                              {student.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
                         <div>
                           <div className="font-medium text-gray-900">{student.name}</div>
                           <div className="text-sm text-gray-500">ID: {student.student_id}</div>
@@ -383,12 +469,83 @@ export default function Students() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg">
-                <div className="text-center">
-                  <Camera className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600">Face photo capture</p>
-                  <p className="text-xs text-gray-500">Coming soon</p>
-                </div>
+              <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <Camera className="w-4 h-4 mr-2 text-blue-600" />
+                  Face photo
+                </p>
+
+                {cameraError && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-2 rounded-lg text-xs mb-2">
+                    {cameraError}
+                  </div>
+                )}
+
+                {formData.photo_url ? (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={formData.photo_url}
+                      alt="Student face preview"
+                      className="w-20 h-20 rounded-lg object-cover border border-gray-200"
+                    />
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={startCamera}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Retake
+                      </button>
+                      <button
+                        type="button"
+                        onClick={removePhoto}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : isCameraActive ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-40 h-32 rounded-lg object-cover bg-black"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-lg transition-colors"
+                      >
+                        <Camera className="w-4 h-4" />
+                        Capture
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="w-full flex flex-col items-center justify-center py-6 text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 rounded-lg transition-colors"
+                  >
+                    <Camera className="w-8 h-8 mx-auto mb-2" />
+                    <span className="text-sm font-medium">Start camera to capture</span>
+                    <span className="text-xs text-gray-400">Used for face recognition</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex space-x-3 pt-4">
