@@ -43,28 +43,21 @@ export default function Reports() {
         setAttendance([]);
         return;
       }
-      let url = "/api/attendance";
+
       const params = new URLSearchParams();
-      
-      if (selectedStudent) {
-        params.append("student_id", selectedStudent);
-      }
-      
+      if (dateFrom) params.append("date_from", dateFrom);
+      if (dateTo) params.append("date_to", dateTo);
+      if (selectedStudent) params.append("student_id", selectedStudent);
+
+      let url = "/api/attendance";
       if (params.toString()) {
         url += `?${params.toString()}`;
       }
-      
+
       const response = await fetch(url);
       const result = await response.json();
       if (result.success) {
-        // Filter by date range
-        const filtered = result.data.filter((record: Attendance) => {
-          const recordDate = new Date(record.attendance_date);
-          const fromDate = new Date(dateFrom);
-          const toDate = new Date(dateTo);
-          return recordDate >= fromDate && recordDate <= toDate;
-        });
-        setAttendance(filtered);
+        setAttendance(result.data);
       } else {
         setError(result.message || "Unable to load attendance.");
       }

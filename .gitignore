@@ -6,6 +6,7 @@ node_modules/
 .env
 .env.local
 .env.*
+!.env.example
 
 # Logs
 *.log
@@ -35,6 +36,9 @@ target/
 *.dll
 *.so
 *.a
+
+# Cloudflare Wrangler local state
+.wrangler/
 
 # Python
 __pycache__/

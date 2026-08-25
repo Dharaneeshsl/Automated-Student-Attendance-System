@@ -6,7 +6,8 @@ import {
   CheckCircle, 
   Calendar,
   User,
-  Clock
+  Clock,
+  X
 } from "lucide-react";
 import { Student, Attendance as AttendanceType } from "@/shared/types";
 
@@ -89,6 +90,24 @@ export default function Attendance() {
     } catch (error) {
       console.error("Failed to mark attendance:", error);
       setActionError("Failed to mark attendance");
+    }
+  };
+
+  const removeAttendance = async (id: number) => {
+    try {
+      setActionError(null);
+      const response = await fetch(`/api/attendance/${id}`, {
+        method: "DELETE"
+      });
+      const result = await response.json();
+      if (result.success) {
+        fetchAttendance();
+      } else {
+        setActionError(result.message || "Failed to remove attendance record");
+      }
+    } catch (error) {
+      console.error("Failed to remove attendance record:", error);
+      setActionError("Failed to remove attendance record");
     }
   };
 
@@ -306,11 +325,21 @@ export default function Attendance() {
                       <div className="text-xs text-gray-600">ID: {record.student_id}</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">
-                      Present
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">
+                        Present
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{record.attendance_time}</div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{record.attendance_time}</div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttendance(record.id!)}
+                      title="Remove record"
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))
